@@ -5,6 +5,7 @@ from kamene.all import *
 import time
 
 def DHCP_Request_Sendonly(ifname, options, wait_time = 1):
+    print('Send DHCP Request mac: %s, requested IP: %s' % (options['MAC'], options['requested_addr']))
     request = Ether(dst='ff:ff:ff:ff:ff:ff',src=options['MAC'],type=0x0800)\
               /IP(src='0.0.0.0', dst='255.255.255.255')\
               /UDP(dport=67,sport=68)\

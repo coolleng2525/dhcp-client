@@ -9,7 +9,10 @@ from Change_MAC import Change_Chaddr_To_MAC
 from DHCP_Discover import DHCP_Discover_Sendonly
 from DHCP_Request import DHCP_Request_Sendonly
 
+interface_mac = None
+
 def DHCP_Monitor_Control(pkt):
+    global interface_mac
     try:
         if pkt.getlayer(DHCP).fields['options'][0][1]== 1:#发现并且打印DHCP Discover
             print('发现DHCP Discover包，MAC地址为:',end='')
@@ -24,9 +27,14 @@ def DHCP_Monitor_Control(pkt):
             options = {}
             MAC_Bytes = pkt.getlayer(BOOTP).fields['chaddr']
             MAC_ADDR = Change_Chaddr_To_MAC(MAC_Bytes)
+            print("MAC_ADDR: ", MAC_ADDR, "interface_mac: ", interface_mac)
+            options['client_id'] = Change_MAC_To_Bytes(MAC_ADDR)
+            if MAC_ADDR != interface_mac:
+                print("the mac address is not the same as the interface mac address, change it to the interface mac address")
+                MAC_ADDR = interface_mac
             #把从OFFER得到的信息读取并且写入options字典
             options['MAC'] = MAC_ADDR
-            options['client_id'] = Change_MAC_To_Bytes(MAC_ADDR)
+       
             print('发现DHCP OFFER包，请求者得到的IP为:' + pkt.getlayer(BOOTP).fields['yiaddr'])
             print('OFFER包中发现如下Options:')
             for option in pkt.getlayer(DHCP).fields['options']:
@@ -84,4 +92,5 @@ if __name__ == '__main__':
     print('the random MAC:', MAC)
     
     src_MAC= get_mac_address(ifname)
+    interface_mac = src_MAC
     DHCP_FULL(ifname, MAC, 10, src_MAC)
