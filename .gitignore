@@ -4,3 +4,4 @@ toydhcp
 dhcp-client
 dhcp-client.d
 dhcp-client.exe
+python/__pycache__/
