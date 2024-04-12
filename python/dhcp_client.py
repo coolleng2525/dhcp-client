@@ -4,7 +4,7 @@
 from kamene.all import *
 import multiprocessing
 from Change_MAC import Change_MAC_To_Bytes
-from python.DHCP_Discover import get_mac_address
+from GET_MAC import get_mac_address
 from Change_MAC import Change_Chaddr_To_MAC
 from DHCP_Discover import DHCP_Discover_Sendonly
 from DHCP_Request import DHCP_Request_Sendonly
@@ -58,7 +58,6 @@ def DHCP_Monitor_Control(pkt):
         pass
 
 # get rand mac address and send discover, request, ack
-
 def get_rand_mac_address():
     mac = [ 0x00, 0x0c, 0x29,
             random.randint(0x00, 0x7f),
@@ -67,10 +66,10 @@ def get_rand_mac_address():
     return ':'.join(map(lambda x: "%02x" % x, mac))
 
 
-def DHCP_FULL(ifname, MAC, timeout = 10):
+def DHCP_FULL(ifname, MAC, timeout = 10, src_MAC = None):
     global Global_IF
     Global_IF = ifname
-    Send_Discover = multiprocessing.Process(target=DHCP_Discover_Sendonly, args=(Global_IF,MAC))#执行多线程，target是目标程序，args是给目标闯入的参数
+    Send_Discover = multiprocessing.Process(target=DHCP_Discover_Sendonly, args=(Global_IF,MAC, 1,   src_MAC ))#执行多线程，target是目标程序，args是给目标闯入的参数
     Send_Discover.start()
     sniff(prn=DHCP_Monitor_Control, filter="port 68 and port 67", store=0, iface=Global_IF, timeout = timeout)#用于捕获DHCP交互的报文
 
@@ -84,5 +83,5 @@ if __name__ == '__main__':
     print('the interface:', ifname)
     print('the random MAC:', MAC)
     
-    # get_mac_address(ifname)
-    DHCP_FULL(ifname, MAC)
+    src_MAC= get_mac_address(ifname)
+    DHCP_FULL(ifname, MAC, 10, src_MAC)

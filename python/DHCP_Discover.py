@@ -6,13 +6,16 @@ from GET_MAC import get_mac_address
 from Change_MAC import Change_MAC_To_Bytes
 import time
 
-def DHCP_Discover_Sendonly(ifname, MAC, wait_time = 1):
+def DHCP_Discover_Sendonly(ifname, MAC, wait_time = 1, interface_Mac = None):
     if wait_time != 0:
         time.sleep(wait_time)
+        src_mac=MAC
+        if interface_Mac != None:
+            src_mac = interface_Mac
         Bytes_MAC = Change_MAC_To_Bytes(MAC)#把MAC地址转换为二进制格式
         #chaddr一共16个字节，MAC地址只有6个字节，所以需要b'\x00'*10填充到16个字节
         #param_req_list为请求的参数，没有这个部分服务器只会回送IP地址，什么参数都不给
-        discover = Ether(dst='ff:ff:ff:ff:ff:ff', src=MAC, type=0x0800) \
+        discover = Ether(dst='ff:ff:ff:ff:ff:ff', src=src_mac, type=0x0800) \
                    / IP(src='0.0.0.0', dst='255.255.255.255') \
                    / UDP(dport=67,sport=68) \
                    / BOOTP(op=1, chaddr=Bytes_MAC + b'\x00'*10) \
