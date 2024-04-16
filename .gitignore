@@ -5,3 +5,6 @@ dhcp-client
 dhcp-client.d
 dhcp-client.exe
 python/__pycache__/
+c/DHCPserver
+c/DHCPclient
+dhcp-client.

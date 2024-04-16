@@ -11,11 +11,28 @@ import (
 	"github.com/dechristopher/dhcp-client/src/models"
 )
 
+
 func main() {
 	// Random MAC Address
 	sampleMac := RandomMac()
 
-	fmt.Printf("~ ToyDHCP %s\n", time.Now().Format(time.RFC822))
+	
+
+	// get mac address from arguments
+	macAddress := flag.String("mac", "", "MAC address")
+	flag.Parse()
+	fmt.Println(flag.Args())
+	fmt.Println("Non-Flag Argument Count:", flag.NArg())
+
+	// Convert the MAC address string to a byte slice
+	sampleMac, err := net.ParseMAC(*macAddress)
+	if err != nil {
+		fmt.Printf("Invalid MAC address: %v\n", err)
+		sampleMac = []byte{0x00, 0x0C, 0x29, 0x4A, 0x4A, 0x4A}
+	}
+	
+
+	fmt.Printf("~ v1.0  %s\n", time.Now().Format(time.RFC822))
 	fmt.Printf("~ MAC: %X\n\n", sampleMac)
 
 	// Desired IP Address command line argument

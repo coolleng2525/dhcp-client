@@ -87,7 +87,12 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         ifname = sys.argv[1]
     
-    MAC = get_rand_mac_address()
+    # get the mac address from  args
+    if len(sys.argv) > 2:
+        MAC = sys.argv[2]
+        print('the MAC:', MAC)
+    else: 
+        MAC = get_rand_mac_address()
     print('the interface:', ifname)
     print('the random MAC:', MAC)
     
