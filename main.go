@@ -11,33 +11,63 @@ import (
 	"github.com/dechristopher/dhcp-client/src/models"
 )
 
-
 func main() {
 	// Random MAC Address
 	sampleMac := RandomMac()
 
-	
-
-	// get mac address from arguments
-	macAddress := flag.String("mac", "", "MAC address")
+	// 添加接口绑定相关的命令行参数
+	var (
+		macAddress  = flag.String("mac", "", "MAC address")
+		requestedIP = flag.String("ip4", "", "Requested IPv4 address")
+		interfaceName = flag.String("iface", "", "Network interface name to bind to")
+		listInterfaces = flag.Bool("list", false, "List available network interfaces")
+	)
 	flag.Parse()
+
+	// 如果用户要求列出接口，则显示并退出
+	if *listInterfaces {
+		models.PrintInterfaces()
+		os.Exit(0)
+	}
+
 	fmt.Println(flag.Args())
 	fmt.Println("Non-Flag Argument Count:", flag.NArg())
 
-	// Convert the MAC address string to a byte slice
-	sampleMac, err := net.ParseMAC(*macAddress)
-	if err != nil {
-		fmt.Printf("Invalid MAC address: %v\n", err)
-		sampleMac = []byte{0x00, 0x0C, 0x29, 0x4A, 0x4A, 0x4A}
+	// 处理接口绑定
+	var bindInterface *models.NetworkInterface
+	var err error
+	if *interfaceName != "" {
+		bindInterface, err = models.FindInterfaceByName(*interfaceName)
+		if err != nil {
+			fmt.Printf("Error finding interface '%s': %v\n", err)
+			fmt.Println("Available interfaces:")
+			models.PrintInterfaces()
+			os.Exit(1)
+		}
+		fmt.Printf("Binding to interface: %s (MAC: %s)\n", bindInterface.Name, bindInterface.MACAddress)
 	}
-	
+
+	// Convert the MAC address string to a byte slice
+	if *macAddress != "" {
+		sampleMac, err = net.ParseMAC(*macAddress)
+		if err != nil {
+			fmt.Printf("Invalid MAC address: %v\n", err)
+			os.Exit(1)
+		}
+	} else if bindInterface != nil {
+		// 如果指定了接口但没有指定MAC，使用接口的MAC地址
+		sampleMac = bindInterface.MACAddress
+	} else {
+		// 使用随机MAC地址
+		sampleMac = RandomMac()
+	}
 
 	fmt.Printf("~ v1.0  %s\n", time.Now().Format(time.RFC822))
-	fmt.Printf("~ MAC: %X\n\n", sampleMac)
-
-	// Desired IP Address command line argument
-	requestedIP := flag.String("ip4", "", "Requested IPv4 address")
-	flag.Parse()
+	fmt.Printf("~ MAC: %X\n", sampleMac)
+	if bindInterface != nil {
+		fmt.Printf("~ Interface: %s\n", bindInterface.Name)
+	}
+	fmt.Println()
 
 	// Build discover packet, don't use actual interface MAC here or actual
 	// computer lease will be returned from DHCP server
@@ -51,8 +81,34 @@ func main() {
 	clientAddr, _ := net.ResolveUDPAddr("udp4",
 		fmt.Sprintf("%s:68", net.IP{0, 0, 0, 0}))
 
-	// Open UDP socket to DHCP server
-	conn, err := net.ListenUDP("udp4", clientAddr)
+	// 如果指定了接口，尝试绑定到该接口
+	var conn *net.UDPConn
+	if bindInterface != nil {
+		// 使用新的接口绑定功能
+		conn, err = models.CreateInterfaceBoundUDPConn(bindInterface.Name, clientAddr)
+		if err != nil {
+			fmt.Printf("Failed to bind to interface '%s': %v\n", bindInterface.Name, err)
+			fmt.Println("Note: Interface binding may require root privileges on Linux")
+			fmt.Println("Available interfaces:")
+			models.PrintInterfaces()
+			os.Exit(1)
+		}
+		
+		// 验证接口绑定
+		if err := models.ValidateInterfaceBinding(conn, bindInterface.Name); err != nil {
+			fmt.Printf("Warning: Interface binding validation failed: %v\n", err)
+		}
+		
+		fmt.Printf("Successfully bound to interface: %s\n", bindInterface.Name)
+	} else {
+		// 使用默认的UDP连接
+		conn, err = net.ListenUDP("udp4", clientAddr)
+		if err != nil {
+			fmt.Printf("UDP dial error: %+v", err)
+			os.Exit(1)
+		}
+	}
+
 	// Defer UDP connection close so we can handle errors on close
 	defer func() {
 		if conn != nil {
@@ -62,11 +118,6 @@ func main() {
 			}
 		}
 	}()
-	// Make sure UDP dial doesn't fail
-	if err != nil {
-		fmt.Printf("UDP dial error: %+v", err)
-		os.Exit(1)
-	}
 
 	// Channel for responses
 	responses := make(chan models.DHCPPacket)

@@ -12,8 +12,8 @@ DHCPserver: DHCPserver.c
 	gcc -o DHCPserver DHCPserver.c
 
 #apt-get install libpcap-dev
-dhcp-client: dhcp-client.c 
-
+dhcp-client: dhcp-client.c
+	gcc -o dhcp-client dhcp-client.c $(LDLIBS)
 
 info:
 	echo "This is a DHCP client program"
