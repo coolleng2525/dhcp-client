@@ -21,6 +21,8 @@ func main() {
 		requestedIP = flag.String("ip4", "", "Requested IPv4 address")
 		interfaceName = flag.String("iface", "", "Network interface name to bind to")
 		listInterfaces = flag.Bool("list", false, "List available network interfaces")
+		maxRetries = flag.Int("retries", 3, "Maximum number of DISCOVER retries")
+		timeoutSec = flag.Int("timeout", 5, "Timeout in seconds for each DISCOVER attempt")
 	)
 	flag.Parse()
 
@@ -151,14 +153,20 @@ func main() {
 		}
 	}()
 
+	// DHCP配置参数
+	timeoutDuration := time.Duration(*timeoutSec) * time.Second
+
 	// Timeout and re-send DISCOVER after 5 seconds
-	timeout := time.NewTicker(time.Second * 5)
+	timeout := time.NewTicker(timeoutDuration)
+	defer timeout.Stop()
+
+	retryCount := 0
 
 	/*
 	 * If the timeout is reached, the DISCOVER is assumed to have failed and
 	 * a new one is sent, on a successful OFFER exit with success.
 	 */
-	for {
+	for retryCount <= *maxRetries {
 		// Now that we are listening for offers, send out a DISCOVER
 		_, err = conn.WriteTo(discoverPacket.Data, serverAddr)
 		if err != nil {
@@ -166,7 +174,11 @@ func main() {
 			os.Exit(1)
 		}
 
-		fmt.Printf("Sent DISCOVER\n")
+		if retryCount == 0 {
+			fmt.Printf("Sent DISCOVER (attempt %d/%d)\n", retryCount+1, *maxRetries+1)
+		} else {
+			fmt.Printf("Sent DISCOVER (retry %d/%d)\n", retryCount, *maxRetries)
+		}
 
 		fmt.Printf("Waiting for OFFER..\n\n")
 
@@ -215,7 +227,18 @@ func main() {
 
 			os.Exit(0)
 		case <-timeout.C:
-			fmt.Println("DISCOVER timeout, resending DISCOVER")
+			retryCount++
+			if retryCount <= *maxRetries {
+				fmt.Printf("DISCOVER timeout, resending DISCOVER (attempt %d/%d)\n", retryCount+1, *maxRetries+1)
+			} else {
+				fmt.Printf("DISCOVER timeout after %d attempts. Giving up.\n", *maxRetries+1)
+				fmt.Println("Possible causes:")
+				fmt.Println("  - No DHCP server available on the network")
+				fmt.Println("  - Network interface not properly configured")
+				fmt.Println("  - Firewall blocking DHCP traffic")
+				fmt.Println("  - Interface binding issues")
+				os.Exit(1)
+			}
 		}
 	}
 }

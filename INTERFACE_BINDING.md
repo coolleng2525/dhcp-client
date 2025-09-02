@@ -35,6 +35,24 @@ DHCP客户端现在支持可选的网络接口绑定功能，允许您将DHCP请
 - 使用指定的MAC地址 `00:11:22:33:44:55`
 - 请求IP地址 `192.168.1.200`
 
+### 4. 超时和重试控制
+```bash
+./dhcp-client -timeout 10 -retries 5
+```
+这将：
+- 设置每次DISCOVER尝试的超时时间为10秒
+- 最多重试5次（总共6次尝试）
+- 如果所有尝试都失败，程序将退出并显示错误信息
+
+### 5. 快速测试模式
+```bash
+./dhcp-client -timeout 1 -retries 0
+```
+这将：
+- 设置超时时间为1秒
+- 不进行重试（只尝试1次）
+- 适合快速测试网络连接
+
 ## 命令行参数
 
 | 参数 | 说明 | 示例 |
@@ -43,6 +61,8 @@ DHCP客户端现在支持可选的网络接口绑定功能，允许您将DHCP请
 | `-list` | 列出所有可用的网络接口 | `-list` |
 | `-mac` | 指定MAC地址（可选，如果不指定则使用接口的MAC） | `-mac 00:11:22:33:44:55` |
 | `-ip4` | 请求的IPv4地址 | `-ip4 192.168.1.100` |
+| `-retries` | 最大重试次数（默认：3） | `-retries 5` |
+| `-timeout` | 每次DISCOVER尝试的超时时间（秒，默认：5） | `-timeout 10` |
 
 ## 技术实现
 
@@ -96,8 +116,42 @@ $ sudo ./dhcp-client -iface eth0 -ip4 192.168.1.200
 ~ Interface: eth0
 
 Successfully bound to interface: eth0
-Sent DISCOVER
+Sent DISCOVER (attempt 1/4)
 Waiting for OFFER..
+```
+
+### 超时和重试示例
+```bash
+$ sudo ./dhcp-client -timeout 2 -retries 2
+~ v1.0  Mon, 01 Jan 2024 12:00:00 +0000
+~ MAC: 637043181025
+
+Sent DISCOVER (attempt 1/3)
+Waiting for OFFER..
+
+DISCOVER timeout, resending DISCOVER (attempt 2/3)
+Sent DISCOVER (retry 1/2)
+Waiting for OFFER..
+
+OFFER received!
+Server offered: 10.223.40.226
+```
+
+### 超时失败示例
+```bash
+$ sudo ./dhcp-client -timeout 1 -retries 0
+~ v1.0  Mon, 01 Jan 2024 12:00:00 +0000
+~ MAC: CE04AAC77187
+
+Sent DISCOVER (attempt 1/1)
+Waiting for OFFER..
+
+DISCOVER timeout after 1 attempts. Giving up.
+Possible causes:
+  - No DHCP server available on the network
+  - Network interface not properly configured
+  - Firewall blocking DHCP traffic
+  - Interface binding issues
 ```
 
 ## 故障排除
@@ -121,6 +175,20 @@ Waiting for OFFER..
    Warning: Interface binding validation failed: interface 'eth0' is down
    ```
    解决方案：确保接口处于UP状态
+
+4. **DHCP超时**
+   ```
+   DISCOVER timeout after 3 attempts. Giving up.
+   Possible causes:
+     - No DHCP server available on the network
+     - Network interface not properly configured
+     - Firewall blocking DHCP traffic
+     - Interface binding issues
+   ```
+   解决方案：
+   - 增加超时时间：`-timeout 10`
+   - 增加重试次数：`-retries 5`
+   - 检查网络连接和DHCP服务器
 
 ### 调试技巧
 
